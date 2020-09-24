@@ -7,8 +7,8 @@ import { Skeleton } from "./engine";
 
   const textures = [
     {
-      label: 'realDJH',
-      url: 'http://salmondaze.gitee.io/djhsm/assets/DJH.png'
+      label: "realDJH",
+      url: "http://salmondaze.gitee.io/djhsm/assets/DJH.png",
     },
     {
       label: "DJH",
@@ -34,7 +34,7 @@ import { Skeleton } from "./engine";
   await game.loadTexture(textures, (index, count) => {
     console.log((index / count) * 100 + "%");
   });
-const count = 100
+  const count = 50;
   for (let i = 0; i < count; i++) {
     game.setInstance(
       "ball" + i,
@@ -44,20 +44,57 @@ const count = 100
         initX: Math.floor(Math.random() * 800),
         initY: Math.floor(Math.random() * 600),
       },
-      'realDJH'
+      (ctx, instance) => {
+        ctx.beginPath();
+        ctx.lineWidth = 0;
+        ctx.fillStyle = "red";
+        ctx.strokeStyle = "red";
+        ctx.arc(instance.x, instance.y, 6, 0, Math.PI * 2, false);
+        ctx.fill();
+      }
     );
   }
 
+  game.setInstance(
+    "pointer",
+    {
+      initVX: 0,
+      initVY: 0,
+      initX: 400,
+      initY: 300,
+    },
+    (ctx, instance) => {
+      ctx.beginPath();
+      ctx.fillStyle = "green";
+      ctx.arc(instance.x, instance.y, 3, 0, Math.PI * 2, false);
+      ctx.fill();
+    }
+  );
+
+  canvas.addEventListener('mousemove', (e) => {
+    game.setInstanceState('pointer', 'x', e.offsetX)
+    game.setInstanceState('pointer', 'y', e.offsetY)
+  })
+  let id
   function draw() {
+    
     game.draw((instanceSet) => {
-      for(let i = 0 ; i < count ; i++) {
+      const p = instanceSet.get('pointer')
+      for (let i = 0; i < count; i++) {
         const ball = instanceSet.get("ball" + i);
-      if (ball.x > 790 || ball.x < 10) ball.vx = -ball.vx;
-      if (ball.y > 590 || ball.y < 10) ball.vy = -ball.vy;
+        if (ball.x > 790 || ball.x < 10) ball.vx = -ball.vx;
+        if (ball.y > 590 || ball.y < 10) ball.vy = -ball.vy;
+        if( ( p.x < ball.x + 5 && p.x > ball.x - 5 ) && (p.y > ball.y - 5 && p.y < ball.y + 5) ){
+          alert('进来了')
+          
+          window.cancelAnimationFrame(id)
+          id = undefined
+          break
+        }
       }
-      
     });
-    window.requestAnimationFrame(draw);
+    id = window.requestAnimationFrame(draw);
   }
   draw();
+  
 })();

@@ -456,16 +456,25 @@ var engine_1 = require("./engine");
   return __awaiter(void 0, void 0, void 0, function () {
     function draw() {
       game.draw(function (instanceSet) {
+        var p = instanceSet.get('pointer');
+
         for (var i = 0; i < count; i++) {
           var ball = instanceSet.get("ball" + i);
           if (ball.x > 790 || ball.x < 10) ball.vx = -ball.vx;
           if (ball.y > 590 || ball.y < 10) ball.vy = -ball.vy;
+
+          if (p.x < ball.x + 5 && p.x > ball.x - 5 && p.y > ball.y - 5 && p.y < ball.y + 5) {
+            alert('进来了');
+            window.cancelAnimationFrame(id);
+            id = undefined;
+            break;
+          }
         }
       });
-      window.requestAnimationFrame(draw);
+      id = window.requestAnimationFrame(draw);
     }
 
-    var canvas, ctx, game, textures, count, i;
+    var canvas, ctx, game, textures, count, i, id;
     return __generator(this, function (_a) {
       switch (_a.label) {
         case 0:
@@ -473,8 +482,8 @@ var engine_1 = require("./engine");
           ctx = canvas.getContext("2d");
           game = new engine_1.Skeleton(ctx);
           textures = [{
-            label: 'realDJH',
-            url: 'http://salmondaze.gitee.io/djhsm/assets/DJH.png'
+            label: "realDJH",
+            url: "http://salmondaze.gitee.io/djhsm/assets/DJH.png"
           }, {
             label: "DJH",
             url: "https://t8.baidu.com/it/u=1484500186,1503043093&fm=79&app=86&size=h300&n=0&g=4n&f=jpeg?sec=1600403887&t=11b6956df493dd5eaba4d4c649829523"
@@ -497,7 +506,7 @@ var engine_1 = require("./engine");
         case 1:
           _a.sent();
 
-          count = 100;
+          count = 50;
 
           for (i = 0; i < count; i++) {
             game.setInstance("ball" + i, {
@@ -505,9 +514,31 @@ var engine_1 = require("./engine");
               initVY: Math.ceil(Math.random() * 3),
               initX: Math.floor(Math.random() * 800),
               initY: Math.floor(Math.random() * 600)
-            }, 'realDJH');
+            }, function (ctx, instance) {
+              ctx.beginPath();
+              ctx.lineWidth = 0;
+              ctx.fillStyle = "red";
+              ctx.strokeStyle = "red";
+              ctx.arc(instance.x, instance.y, 6, 0, Math.PI * 2, false);
+              ctx.fill();
+            });
           }
 
+          game.setInstance("pointer", {
+            initVX: 0,
+            initVY: 0,
+            initX: 400,
+            initY: 300
+          }, function (ctx, instance) {
+            ctx.beginPath();
+            ctx.fillStyle = "green";
+            ctx.arc(instance.x, instance.y, 3, 0, Math.PI * 2, false);
+            ctx.fill();
+          });
+          canvas.addEventListener('mousemove', function (e) {
+            game.setInstanceState('pointer', 'x', e.offsetX);
+            game.setInstanceState('pointer', 'y', e.offsetY);
+          });
           draw();
           return [2
           /*return*/
@@ -544,7 +575,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "58788" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54023" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};
