@@ -1,4 +1,9 @@
-import { Instance, InstanceCnt, InstanceState } from "./instance";
+import {
+  Instance,
+  InstanceCnt,
+  InstanceState,
+  InstanceBehavior,
+} from "./instance";
 
 type loadImage = {
   texture: HTMLImageElement;
@@ -8,13 +13,23 @@ type loadImage = {
 interface Options {
   width?: number;
   height?: number;
+  debug: Boolean;
 }
-export class Skeleton<T extends string, U extends string> {
+export class Skeleton<T extends string = string, U extends string = string> {
   private opts: Options;
+  private defer:number = 0
+  private canvas: HTMLCanvasElement
   private ctx: CanvasRenderingContext2D;
+  private fps: number = 60;
+  private tickTime: number;
+  private lastTickTime: number;
+  private time: number = 0;
+  private startTime: number = 0;
+  private listeners = {}
+  private gameState: Map<string, any> = new Map();
   textureCache: Map<T, loadImage> = new Map();
   instanceSet: Map<string, Instance<T>> = new Map();
-  constructor(ctx: CanvasRenderingContext2D, opts: Options = {}) {
+  constructor(canvas: HTMLCanvasElement, opts: Options = { debug: false }) {
     const defaultOpts = {
       width: 800,
       height: 600,
@@ -23,7 +38,8 @@ export class Skeleton<T extends string, U extends string> {
       ...defaultOpts,
       ...opts,
     };
-    this.ctx = ctx;
+    this.canvas = canvas
+    this.ctx = this.canvas.getContext('2d');
   }
 
   loadTexture(
@@ -32,7 +48,7 @@ export class Skeleton<T extends string, U extends string> {
   ) {
     return new Promise((resolve, reject) => {
       let count = 0;
-      textureList.forEach(({ label, url }, index) => {
+      textureList.forEach(({ label, url }) => {
         const img = new Image();
         img.src = url;
         img.onload = () => {
@@ -52,23 +68,55 @@ export class Skeleton<T extends string, U extends string> {
     });
   }
 
-  setInstance(
-    name: U,
-    params: InstanceCnt,
-    texture: ((ctx: CanvasRenderingContext2D, instance: Instance) => void) | T
-  ): this {
-    this.instanceSet.set(name, new Instance<T>(params, texture));
+  setInstance(name: U, params: InstanceCnt, behavior: InstanceBehavior, initState): this {
+    this.instanceSet.set(name, new Instance<T>(name, params, behavior, initState));
     return this;
   }
 
-  setInstanceState(name: U, state: InstanceState, value: number) {
-    const instance = this.instanceSet.get(name);
-    if (!instance) throw new Error(`未找到 ${name} 实例`);
-
-    instance[state] = value;
+  public setVariable(type: string | Record<string, any>, value?: any): void {
+    if (Object.prototype.toString.call(type) === "[object Object]") {
+      for (const item of Object.entries(type)) {
+        this.gameState[item[0]] = item[1];
+      }
+    } else {
+      this.gameState[type as string] = value;
+    }
   }
 
-  getInstance(name: U) {
+  public getVariable(name: string, defaultValue?: any) {
+    return this.gameState[name] || (this.gameState[name] = defaultValue);
+  }
+
+  public getTexture(name: string) {
+    return this.textureCache[name];
+  }
+
+  public showFps() {
+    this.ctx.fillStyle = "red";
+    this.ctx.font = `16px Arial`;
+    this.ctx.fillText(`FPS: ${Math.round(+this.fps.toFixed())}`, 5, 40);
+    this.defer++
+      if (this.defer > 20) {
+        this.defer = 0;
+        this.fps = this.lastTickTime
+          ? 1000 / (this.tickTime - this.lastTickTime)
+          : 60;
+      }
+    
+  }
+
+  tick() {
+    this.lastTickTime = this.tickTime;
+    this.tickTime = +new Date();
+  }
+
+  setInstanceState(name: U, key: string, value: any) {
+    const instance = this.instanceSet.get(name);
+    if (!instance) throw new Error(`未找到 ${name} 实例`);
+    instance.state[key] = value;
+  }
+
+  getInstance(name: U): Instance {
     return this.instanceSet.get(name);
   }
 
@@ -80,18 +128,43 @@ export class Skeleton<T extends string, U extends string> {
     this.ctx.clearRect(0, 0, this.opts.width, this.opts.height);
   }
 
-  draw(callback: (instanceSet: Map<string, Instance<T>>) => void) {
-    this.clear();
+  updateInstance() {
     this.instanceSet.forEach((instance) => {
-      typeof instance.texture === "function"
-        ? instance.texture(this.ctx, instance)
-        : this.ctx.drawImage(
-            this.textureCache.get(instance.texture).texture,
-            instance.x,
-            instance.y
-          );
-      instance.movement(instance.vx, instance.vy);
+      instance.update(this, this.time);
     });
-    callback(this.instanceSet);
+  }
+
+  paintInstance() {
+    this.instanceSet.forEach((instance) => {
+      instance.draw(this);
+    });
+  }
+
+  addEvent(type: string, listener: (e: Event, engine: this, set: Map<string, Instance<T>>) => void) {
+    document.addEventListener(type, (e) => listener(e, this, this.instanceSet))
+  }
+
+  animate() {
+    this.clear();
+    this.tick();
+    this.opts.debug && this.showFps();
+    this.updateInstance();
+    this.paintInstance();
+    window.requestAnimationFrame(this.animate.bind(this));
+    // this.instanceSet.forEach((instance) => {
+    //   typeof instance.texture === "function"
+    //     ? instance.texture(this.ctx, instance)
+    //     : this.ctx.drawImage(
+    //         this.textureCache.get(instance.texture).texture,
+    //         instance.x,
+    //         instance.y
+    //       );
+    //   instance.movement(instance.vx, instance.vy);
+    // });
+  }
+
+  startDraw() {
+    this.startTime = +new Date();
+    this.animate();
   }
 }

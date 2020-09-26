@@ -1,0 +1,7 @@
+{
+    "compilerOptions": {
+      "lib": ["es2018", "DOM"]
+    },
+    "exclude": ["./node_modules", "./dist"],
+    "include": ["instance.ts"]
+  }

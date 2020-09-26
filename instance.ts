@@ -1,3 +1,5 @@
+import { Skeleton } from './engine'
+
 export interface InstanceCnt {
   initVX: number;
   initVY: number;
@@ -5,23 +7,44 @@ export interface InstanceCnt {
   initY: number;
 }
 
+export interface InstanceBehavior {
+  action: Function,
+  paint: (instance: Instance, engine: Skeleton) => void;
+}
+
 export type InstanceState = "x" | "y" | "vx" | "vy";
 
-export class Instance<T extends string = string>{
+export class Instance<T extends string = string> {
   private _vx: number;
   private _vy: number;
   private _x: number;
   private _y: number;
-  texture: ((ctx: CanvasRenderingContext2D, instance: Instance) => void) | T;
+  state: Record<string, any> = {}
+  action?: Function;
+  paint?: (instance: this, engine: Skeleton) => void;
+  name: string
   constructor(
+    name: string,
     { initVX, initVY, initX, initY }: InstanceCnt,
-    texture: ((ctx: CanvasRenderingContext2D, instance: Instance) => void) | T
+    { action, paint }: InstanceBehavior,
+    initState
   ) {
+    this.name = name
     this._vx = initVX;
     this._vy = initVY;
     this._x = initX;
     this._y = initY;
-    this.texture = texture;
+    this.action = action;
+    this.paint = paint;
+    this.state = initState
+  }
+
+  update(engine: Skeleton, time) {
+    this.action(this, engine, time);
+  }
+
+  draw(engine: Skeleton) {
+    this.paint(this, engine)
   }
 
   get vx() {

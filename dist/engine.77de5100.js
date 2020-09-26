@@ -128,17 +128,31 @@ exports.Instance = void 0;
 var Instance =
 /** @class */
 function () {
-  function Instance(_a, texture) {
+  function Instance(name, _a, _b, initState) {
     var initVX = _a.initVX,
         initVY = _a.initVY,
         initX = _a.initX,
         initY = _a.initY;
+    var action = _b.action,
+        paint = _b.paint;
+    this.state = {};
+    this.name = name;
     this._vx = initVX;
     this._vy = initVY;
     this._x = initX;
     this._y = initY;
-    this.texture = texture;
+    this.action = action;
+    this.paint = paint;
+    this.state = initState;
   }
+
+  Instance.prototype.update = function (engine, time) {
+    this.action(this, engine, time);
+  };
+
+  Instance.prototype.draw = function (engine) {
+    this.paint(this, engine);
+  };
 
   Object.defineProperty(Instance.prototype, "vx", {
     get: function get() {
@@ -219,11 +233,19 @@ var instance_1 = require("./instance");
 var Skeleton =
 /** @class */
 function () {
-  function Skeleton(ctx, opts) {
+  function Skeleton(canvas, opts) {
     if (opts === void 0) {
-      opts = {};
+      opts = {
+        debug: false
+      };
     }
 
+    this.defer = 0;
+    this.fps = 60;
+    this.time = 0;
+    this.startTime = 0;
+    this.listeners = {};
+    this.gameState = new Map();
     this.textureCache = new Map();
     this.instanceSet = new Map();
     var defaultOpts = {
@@ -231,7 +253,8 @@ function () {
       height: 600
     };
     this.opts = __assign(__assign({}, defaultOpts), opts);
-    this.ctx = ctx;
+    this.canvas = canvas;
+    this.ctx = this.canvas.getContext('2d');
   }
 
   Skeleton.prototype.loadTexture = function (textureList, callback) {
@@ -239,7 +262,7 @@ function () {
 
     return new Promise(function (resolve, reject) {
       var count = 0;
-      textureList.forEach(function (_a, index) {
+      textureList.forEach(function (_a) {
         var label = _a.label,
             url = _a.url;
         var img = new Image();
@@ -262,15 +285,51 @@ function () {
     });
   };
 
-  Skeleton.prototype.setInstance = function (name, params, texture) {
-    this.instanceSet.set(name, new instance_1.Instance(params, texture));
+  Skeleton.prototype.setInstance = function (name, params, behavior, initState) {
+    this.instanceSet.set(name, new instance_1.Instance(name, params, behavior, initState));
     return this;
   };
 
-  Skeleton.prototype.setInstanceState = function (name, state, value) {
+  Skeleton.prototype.setVariable = function (type, value) {
+    if (Object.prototype.toString.call(type) === "[object Object]") {
+      for (var _i = 0, _a = Object.entries(type); _i < _a.length; _i++) {
+        var item = _a[_i];
+        this.gameState[item[0]] = item[1];
+      }
+    } else {
+      this.gameState[type] = value;
+    }
+  };
+
+  Skeleton.prototype.getVariable = function (name, defaultValue) {
+    return this.gameState[name] || (this.gameState[name] = defaultValue);
+  };
+
+  Skeleton.prototype.getTexture = function (name) {
+    return this.textureCache[name];
+  };
+
+  Skeleton.prototype.showFps = function () {
+    this.ctx.fillStyle = "red";
+    this.ctx.font = "16px Arial";
+    this.ctx.fillText("FPS: " + Math.round(+this.fps.toFixed()), 5, 40);
+    this.defer++;
+
+    if (this.defer > 20) {
+      this.defer = 0;
+      this.fps = this.lastTickTime ? 1000 / (this.tickTime - this.lastTickTime) : 60;
+    }
+  };
+
+  Skeleton.prototype.tick = function () {
+    this.lastTickTime = this.tickTime;
+    this.tickTime = +new Date();
+  };
+
+  Skeleton.prototype.setInstanceState = function (name, key, value) {
     var instance = this.instanceSet.get(name);
     if (!instance) throw new Error("\u672A\u627E\u5230 " + name + " \u5B9E\u4F8B");
-    instance[state] = value;
+    instance.state[key] = value;
   };
 
   Skeleton.prototype.getInstance = function (name) {
@@ -285,15 +344,51 @@ function () {
     this.ctx.clearRect(0, 0, this.opts.width, this.opts.height);
   };
 
-  Skeleton.prototype.draw = function (callback) {
+  Skeleton.prototype.updateInstance = function () {
     var _this = this;
 
-    this.clear();
     this.instanceSet.forEach(function (instance) {
-      typeof instance.texture === "function" ? instance.texture(_this.ctx, instance) : _this.ctx.drawImage(_this.textureCache.get(instance.texture).texture, instance.x, instance.y);
-      instance.movement(instance.vx, instance.vy);
+      instance.update(_this, _this.time);
     });
-    callback(this.instanceSet);
+  };
+
+  Skeleton.prototype.paintInstance = function () {
+    var _this = this;
+
+    this.instanceSet.forEach(function (instance) {
+      instance.draw(_this);
+    });
+  };
+
+  Skeleton.prototype.addEvent = function (type, listener) {
+    var _this = this;
+
+    document.addEventListener(type, function (e) {
+      return listener(e, _this, _this.instanceSet);
+    });
+  };
+
+  Skeleton.prototype.animate = function () {
+    this.clear();
+    this.tick();
+    this.opts.debug && this.showFps();
+    this.updateInstance();
+    this.paintInstance();
+    window.requestAnimationFrame(this.animate.bind(this)); // this.instanceSet.forEach((instance) => {
+    //   typeof instance.texture === "function"
+    //     ? instance.texture(this.ctx, instance)
+    //     : this.ctx.drawImage(
+    //         this.textureCache.get(instance.texture).texture,
+    //         instance.x,
+    //         instance.y
+    //       );
+    //   instance.movement(instance.vx, instance.vy);
+    // });
+  };
+
+  Skeleton.prototype.startDraw = function () {
+    this.startTime = +new Date();
+    this.animate();
   };
 
   return Skeleton;
@@ -455,32 +550,18 @@ var engine_1 = require("./engine");
 (function () {
   return __awaiter(void 0, void 0, void 0, function () {
     function draw() {
-      game.draw(function (instanceSet) {
-        var p = instanceSet.get('pointer');
-
-        for (var i = 0; i < count; i++) {
-          var ball = instanceSet.get("ball" + i);
-          if (ball.x > 790 || ball.x < 10) ball.vx = -ball.vx;
-          if (ball.y > 590 || ball.y < 10) ball.vy = -ball.vy;
-
-          if (p.x < ball.x + 5 && p.x > ball.x - 5 && p.y > ball.y - 5 && p.y < ball.y + 5) {
-            alert('进来了');
-            window.cancelAnimationFrame(id);
-            id = undefined;
-            break;
-          }
-        }
-      });
-      id = window.requestAnimationFrame(draw);
+      game.startDraw();
     }
 
-    var canvas, ctx, game, textures, count, i, id;
+    var canvas, ctx, game, textures, ballBehavior, pointerBehavior, i, id;
     return __generator(this, function (_a) {
       switch (_a.label) {
         case 0:
           canvas = document.querySelector("#canvas");
           ctx = canvas.getContext("2d");
-          game = new engine_1.Skeleton(ctx);
+          game = new engine_1.Skeleton(canvas, {
+            debug: true
+          });
           textures = [{
             label: "realDJH",
             url: "http://salmondaze.gitee.io/djhsm/assets/DJH.png"
@@ -506,22 +587,70 @@ var engine_1 = require("./engine");
         case 1:
           _a.sent();
 
-          count = 50;
+          game.setVariable("count", 4000);
+          game.addEvent('mousedown', function (e, engine, instanceSet) {
+            console.log(e);
+            var ball = game.getVariable('count');
+            engine.setInstance("ball" + (ball + 1), {
+              initVX: Math.ceil(Math.random() * 3),
+              initVY: Math.ceil(Math.random() * 3),
+              initX: e.offsetX,
+              initY: e.offsetY
+            }, ballBehavior, {
+              color: "" + Math.floor(Number(Math.random() * 255)).toString(16) + Math.floor(Number(Math.random() * 255)).toString(16) + Math.floor(Number(Math.random() * 255)).toString(16)
+            });
+            game.setVariable('count', ball + 1);
+          });
+          game.addEvent('mousemove', function (e, engine, instanceSet) {
+            var pointer = engine.getInstance('pointer');
+            pointer.x = e.offsetX;
+            pointer.y = e.offsetY;
+          });
+          ballBehavior = {
+            action: function action(instance, engine, time) {
+              var p = game.getInstance("pointer");
+              if (instance.x > 790 || instance.x < 10) instance.vx = -instance.vx;
+              if (instance.y > 590 || instance.y < 10) instance.vy = -instance.vy;
 
-          for (i = 0; i < count; i++) {
+              if (p.x < instance.x + p.state.radius && p.x > instance.x - p.state.radius && p.y > instance.y - p.state.radius && p.y < instance.y + p.state.radius) {
+                game.destoryInstance(instance.name);
+                game.setInstanceState(p.name, 'radius', p.state.radius + 0.1);
+                console.log("进来了");
+              }
+
+              instance.x += instance.vx;
+              instance.y += instance.vy;
+            },
+            paint: function paint(instance, engine) {
+              var ctx = engine.ctx;
+              ctx.beginPath();
+              ctx.fillStyle = instance.state.color;
+              ctx.arc(instance.x, instance.y, 2, 0, Math.PI * 2, false);
+              ctx.fill();
+            }
+          };
+          pointerBehavior = {
+            action: function action(instance, engine, time) {},
+            paint: function paint(instance, engine) {
+              var ctx = engine.ctx;
+              ctx.beginPath();
+              ctx.drawImg;
+              ctx.fillStyle = instance.color;
+              ctx.arc(instance.x, instance.y, instance.state.radius, 0, Math.PI * 2, false);
+              ctx.fill();
+            }
+          };
+
+          for (i = 0; i < game.getVariable('count'); i++) {
             game.setInstance("ball" + i, {
               initVX: Math.ceil(Math.random() * 3),
               initVY: Math.ceil(Math.random() * 3),
-              initX: Math.floor(Math.random() * 800),
-              initY: Math.floor(Math.random() * 600)
-            }, function (ctx, instance) {
-              ctx.beginPath();
-              ctx.lineWidth = 0;
-              ctx.fillStyle = "red";
-              ctx.strokeStyle = "red";
-              ctx.arc(instance.x, instance.y, 6, 0, Math.PI * 2, false);
-              ctx.fill();
+              initX: Math.floor(Math.random() * 750 + 30),
+              initY: Math.floor(Math.random() * 550 + 30)
+            }, ballBehavior, {
+              radius: 1
             });
+            game.setInstanceState("ball" + i, 'color', "" + Math.floor(Number(Math.random() * 255)).toString(16) + Math.floor(Number(Math.random() * 255)).toString(16) + Math.floor(Number(Math.random() * 255)).toString(16));
           }
 
           game.setInstance("pointer", {
@@ -529,15 +658,8 @@ var engine_1 = require("./engine");
             initVY: 0,
             initX: 400,
             initY: 300
-          }, function (ctx, instance) {
-            ctx.beginPath();
-            ctx.fillStyle = "green";
-            ctx.arc(instance.x, instance.y, 3, 0, Math.PI * 2, false);
-            ctx.fill();
-          });
-          canvas.addEventListener('mousemove', function (e) {
-            game.setInstanceState('pointer', 'x', e.offsetX);
-            game.setInstanceState('pointer', 'y', e.offsetY);
+          }, pointerBehavior, {
+            radius: 1
           });
           draw();
           return [2
@@ -575,7 +697,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "54023" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "65350" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

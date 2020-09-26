@@ -3,7 +3,9 @@ import { Skeleton } from "./engine";
 (async () => {
   const canvas = document.querySelector("#canvas") as HTMLCanvasElement;
   const ctx = canvas.getContext("2d");
-  const game = new Skeleton(ctx);
+  const game = new Skeleton(canvas, {
+    debug: true
+  });
 
   const textures = [
     {
@@ -19,7 +21,7 @@ import { Skeleton } from "./engine";
       label: "DJHcry",
       url:
         "https://t7.baidu.com/it/u=3204887199,3790688592&fm=79&app=86&size=h300&n=0&g=4n&f=jpeg?sec=1600403887&t=08e3a2384ee14f63629e4e64e6586d08",
-    },
+    }, 
     {
       label: "food",
       url:
@@ -34,67 +36,97 @@ import { Skeleton } from "./engine";
   await game.loadTexture(textures, (index, count) => {
     console.log((index / count) * 100 + "%");
   });
-  const count = 50;
-  for (let i = 0; i < count; i++) {
-    game.setInstance(
-      "ball" + i,
-      {
-        initVX: Math.ceil(Math.random() * 3),
-        initVY: Math.ceil(Math.random() * 3),
-        initX: Math.floor(Math.random() * 800),
-        initY: Math.floor(Math.random() * 600),
-      },
-      (ctx, instance) => {
-        ctx.beginPath();
-        ctx.lineWidth = 0;
-        ctx.fillStyle = "red";
-        ctx.strokeStyle = "red";
-        ctx.arc(instance.x, instance.y, 6, 0, Math.PI * 2, false);
-        ctx.fill();
-      }
-    );
-  }
 
-  game.setInstance(
-    "pointer",
-    {
-      initVX: 0,
-      initVY: 0,
-      initX: 400,
-      initY: 300,
+  game.setVariable("count", 4000);
+  game.addEvent('mousedown', (e, engine, instanceSet) => {
+    console.log(e)
+    const ball = game.getVariable('count')
+    engine.setInstance(`ball${ball+1}`, {
+      initVX: Math.ceil(Math.random() * 3),
+      initVY: Math.ceil(Math.random() * 3),
+      initX: (e as MouseEvent).offsetX,
+      initY: (e as MouseEvent).offsetY,
+    }, ballBehavior, {
+      color: `${Math.floor(Number(Math.random() * 255)).toString(16)}${Math.floor(Number(Math.random() * 255)).toString(16)}${Math.floor(Number(Math.random() * 255)).toString(16)}`
+    })
+    game.setVariable('count', ball + 1)
+  })
+
+  game.addEvent('mousemove', (e, engine, instanceSet) => {
+    const pointer = engine.getInstance('pointer')
+    pointer.x = e.offsetX
+    pointer.y = e.offsetY
+  })
+  const ballBehavior = {
+    action: (instance, engine, time) => {
+       const p = game.getInstance("pointer");
+       if (instance.x > 790 || instance.x < 10) instance.vx = -instance.vx;
+       if (instance.y > 590 || instance.y < 10) instance.vy = -instance.vy;
+      if (
+        p.x < instance.x + p.state.radius &&
+        p.x > instance.x - p.state.radius &&
+        p.y > instance.y - p.state.radius &&
+        p.y < instance.y + p.state.radius
+      ) {
+        game.destoryInstance(instance.name);
+        game.setInstanceState(p.name, 'radius', p.state.radius + 0.1)
+        console.log("进来了");
+      }
+
+      instance.x += instance.vx
+      instance.y += instance.vy
     },
-    (ctx, instance) => {
+    paint: (instance, engine) => {
+      const { ctx } = engine;
       ctx.beginPath();
-      ctx.fillStyle = "green";
-      ctx.arc(instance.x, instance.y, 3, 0, Math.PI * 2, false);
+      ctx.fillStyle = instance.state.color;
+      ctx.arc(instance.x, instance.y, 2, 0, Math.PI * 2, false);
+      ctx.fill();
+    },
+  };
+
+  const pointerBehavior = {
+    action: (instance, engine, time) => {
+
+    },
+    paint: (instance, engine) => {
+      const { ctx } = engine;
+      ctx.beginPath();
+      ctx.drawImg
+      ctx.fillStyle = instance.color;
+      ctx.arc(instance.x, instance.y, instance.state.radius, 0, Math.PI * 2, false);
       ctx.fill();
     }
-  );
+  }
+  for (let i = 0; i < game.getVariable('count'); i++) {
+    game.setInstance(`ball${i}`, {
+      initVX: Math.ceil(Math.random() * 3),
+      initVY: Math.ceil(Math.random() * 3),
+      initX: Math.floor(Math.random() * 750 + 30),
+      initY: Math.floor(Math.random() * 550 + 30),
+    }, ballBehavior, {
+      radius: 1
+    })
 
-  canvas.addEventListener('mousemove', (e) => {
-    game.setInstanceState('pointer', 'x', e.offsetX)
-    game.setInstanceState('pointer', 'y', e.offsetY)
+    game.setInstanceState(`ball${i}`, 'color', `${Math.floor(Number(Math.random() * 255)).toString(16)}${Math.floor(Number(Math.random() * 255)).toString(16)}${Math.floor(Number(Math.random() * 255)).toString(16)}`)
+  }
+
+  game.setInstance(`pointer`, {
+    initVX: 0,
+    initVY: 0,
+    initX: 400,
+    initY: 300,
+  }, pointerBehavior, {
+    radius: 1
   })
-  let id
+
+  // canvas.addEventListener("mousemove", (e) => {
+  //   game.setInstanceState("pointer", "x", e.offsetX);
+  //   game.setInstanceState("pointer", "y", e.offsetY);
+  // });
+  let id;
   function draw() {
-    
-    game.draw((instanceSet) => {
-      const p = instanceSet.get('pointer')
-      for (let i = 0; i < count; i++) {
-        const ball = instanceSet.get("ball" + i);
-        if (ball.x > 790 || ball.x < 10) ball.vx = -ball.vx;
-        if (ball.y > 590 || ball.y < 10) ball.vy = -ball.vy;
-        if( ( p.x < ball.x + 5 && p.x > ball.x - 5 ) && (p.y > ball.y - 5 && p.y < ball.y + 5) ){
-          alert('进来了')
-          
-          window.cancelAnimationFrame(id)
-          id = undefined
-          break
-        }
-      }
-    });
-    id = window.requestAnimationFrame(draw);
+    game.startDraw()
   }
   draw();
-  
 })();
