@@ -73,8 +73,8 @@ export class Skeleton<T extends string = string, U extends string = string> {
     this.layers.push([]);
   }
 
-  get LayerLength(): number {
-    return this.layers.length;
+  get lastLayerIndex(): number {
+    return this.layers.length - 1;
   }
 
   setInstance({
@@ -90,16 +90,15 @@ export class Skeleton<T extends string = string, U extends string = string> {
     initState?;
     layerIndex?: number;
   }): this {
-    const instance = new Instance(name, pos, behavior, initState || {}, { layerIndex })
-    this.instanceSet.set(
-      name,
-      instance
-    );
+    const instance = new Instance(name, pos, behavior, initState || {}, {
+      layerIndex,
+    });
+    this.instanceSet.set(name, instance);
     if (!this.layers[layerIndex]) {
       logger.warn(`图层 ${layerIndex} 不存在`);
       return this;
     }
-    this.layers[layerIndex || 0].push( instance );
+    this.layers[layerIndex || 0].push(instance);
     return this;
   }
 
@@ -150,10 +149,12 @@ export class Skeleton<T extends string = string, U extends string = string> {
   }
 
   destoryInstance(name: U) {
-    const { layerIndex } = this.instanceSet.get(name).meta
-    this.layers[ layerIndex ] = this.layers[ layerIndex ].filter( instance => instance.name !== name )
+    const { layerIndex } = this.instanceSet.get(name).meta;
+    this.layers[layerIndex] = this.layers[layerIndex].filter(
+      (instance) => instance.name !== name
+    );
     this.instanceSet.delete(name);
-    return this
+    return this;
   }
 
   clear() {
@@ -188,6 +189,7 @@ export class Skeleton<T extends string = string, U extends string = string> {
     this.updateInstance();
     this.paintInstance();
     window.requestAnimationFrame(this.animate.bind(this));
+    this.time = new Date().getTime() - this.startTime
   }
 
   startDraw() {

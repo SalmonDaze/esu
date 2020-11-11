@@ -67,7 +67,7 @@ import { Skeleton } from "./engine";
     pointer.y = e.offsetY;
   });
   const ballBehavior = {
-    action: (instance, engine, time) => {
+    action: (instance, engine) => {
       const p = game.getInstance("pointer");
       if (instance.x > 790 || instance.x < 10) instance.vx = -instance.vx;
       if (instance.y > 590 || instance.y < 10) instance.vy = -instance.vy;
@@ -135,6 +135,7 @@ import { Skeleton } from "./engine";
       ).toString(16)}${Math.floor(Number(Math.random() * 255)).toString(16)}`
     );
   }
+  game.addLayer()
   game.setInstance({
     name: `pointer`,
     pos: {
@@ -147,6 +148,7 @@ import { Skeleton } from "./engine";
     initState: {
       radius: 10,
     },
+    layerIndex: game.lastLayerIndex 
   });
 
   // canvas.addEventListener("mousemove", (e) => {

@@ -42,8 +42,8 @@ export class Instance<T extends string = string> {
     this.meta = meta
   }
 
-  update(engine: Skeleton, time) {
-    this.action(this, engine, time);
+  update(engine: Skeleton) {
+    this.action(this, engine);
   }
 
   draw(engine: Skeleton) {
