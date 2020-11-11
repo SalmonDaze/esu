@@ -38,22 +38,27 @@ import { Skeleton } from "./engine";
     console.log((index / count) * 100 + "%");
   });
   const camera = new Camera({
-    cameraName: "init",
     width: 400,
     height: 400,
-    offsetX: -400,
-    offsetY: -400,
+    offsetX: 5,
+    offsetY: 0,
   });
-  // const camera2 = new Camera({
-  //   cameraName: "init2",
-  //   width: 400,
-  //   height: 400,
-  //   offsetX: 0,
-  //   offsetY: -300,
-  // });
+  const camera2 = new Camera({
+    width: 400,
+    height: 400,
+    offsetX: 0,
+    offsetY: 0,
+  });
+  const camera3 = new Camera({
+    width: 400,
+    height: 400,
+    offsetX: 10,
+    offsetY: 0,
+  });
   game.addCamera("initCamera", camera);
-  //game.addCamera("camera2", camera2);
-  game.setVariable("count", 100);
+  game.addCamera("camera2", camera2);
+  game.addCamera("camera3", camera3);
+  game.setVariable("count", 500);
   game.addEvent("mousedown", (e, engine, instanceSet) => {
     console.log(e);
     const ball = game.getVariable("count");

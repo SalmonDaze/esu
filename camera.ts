@@ -7,7 +7,6 @@ export interface CameraOpts {
   height: number;
   offsetX: number;
   offsetY: number;
-  cameraName: string;
 }
 
 export class Camera {
@@ -16,9 +15,7 @@ export class Camera {
   height: number;
   offsetX: number;
   offsetY: number;
-  cameraName: string;
   constructor({
-    cameraName,
     follower,
     offsetX,
     offsetY,
@@ -26,7 +23,6 @@ export class Camera {
     height
   }: CameraOpts) {
     this.follower = follower;
-    this.cameraName = cameraName;
     this.offsetX = offsetX
     this.offsetY = offsetY
     this.width = width
@@ -42,7 +38,7 @@ export class Camera {
 
   getRender(instance: Instance, ctx: CanvasRenderingContext2D) {
     return function( draw ) {
-        
+
     }
   }
 //   offset() {
