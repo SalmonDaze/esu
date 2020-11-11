@@ -23,11 +23,13 @@ export class Instance<T extends string = string> {
   action?: Function;
   paint?: (instance: this, engine: Skeleton) => void;
   name: string
+  meta
   constructor(
     name: string,
     { initVX, initVY, initX, initY }: InstanceCnt,
     { action, paint }: InstanceBehavior,
-    initState
+    initState,
+    meta: Record<string, any>
   ) {
     this.name = name
     this._vx = initVX;
@@ -37,6 +39,7 @@ export class Instance<T extends string = string> {
     this.action = action;
     this.paint = paint;
     this.state = initState
+    this.meta = meta
   }
 
   update(engine: Skeleton, time) {

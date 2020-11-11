@@ -4,7 +4,7 @@ import {
   InstanceState,
   InstanceBehavior,
 } from "./instance";
-
+import { logger } from "./Logger";
 type loadImage = {
   texture: HTMLImageElement;
   status: boolean;
@@ -17,16 +17,17 @@ interface Options {
 }
 export class Skeleton<T extends string = string, U extends string = string> {
   private opts: Options;
-  private defer:number = 0
-  private canvas: HTMLCanvasElement
+  private defer: number = 0;
+  private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
   private fps: number = 60;
   private tickTime: number;
   private lastTickTime: number;
   private time: number = 0;
   private startTime: number = 0;
-  private listeners = {}
-  private gameState: Map<string, any> = new Map();
+  private listeners = {};
+  private layers: Instance[][] = [[]];
+  gameState: Map<string, any> = new Map();
   textureCache: Map<T, loadImage> = new Map();
   instanceSet: Map<string, Instance<T>> = new Map();
   constructor(canvas: HTMLCanvasElement, opts: Options = { debug: false }) {
@@ -38,8 +39,8 @@ export class Skeleton<T extends string = string, U extends string = string> {
       ...defaultOpts,
       ...opts,
     };
-    this.canvas = canvas
-    this.ctx = this.canvas.getContext('2d');
+    this.canvas = canvas;
+    this.ctx = this.canvas.getContext("2d");
   }
 
   loadTexture(
@@ -68,12 +69,41 @@ export class Skeleton<T extends string = string, U extends string = string> {
     });
   }
 
-  setInstance(name: U, params: InstanceCnt, behavior: InstanceBehavior, initState): this {
-    this.instanceSet.set(name, new Instance<T>(name, params, behavior, initState));
+  addLayer() {
+    this.layers.push([]);
+  }
+
+  get LayerLength(): number {
+    return this.layers.length;
+  }
+
+  setInstance({
+    name,
+    pos,
+    behavior,
+    initState = {},
+    layerIndex = 0,
+  }: {
+    name: U;
+    pos: InstanceCnt;
+    behavior: InstanceBehavior;
+    initState?;
+    layerIndex?: number;
+  }): this {
+    const instance = new Instance(name, pos, behavior, initState || {}, { layerIndex })
+    this.instanceSet.set(
+      name,
+      instance
+    );
+    if (!this.layers[layerIndex]) {
+      logger.warn(`图层 ${layerIndex} 不存在`);
+      return this;
+    }
+    this.layers[layerIndex || 0].push( instance );
     return this;
   }
 
-  public setVariable(type: string | Record<string, any>, value?: any): void {
+  setVariable(type: string | Record<string, any>, value?: any): void {
     if (Object.prototype.toString.call(type) === "[object Object]") {
       for (const item of Object.entries(type)) {
         this.gameState[item[0]] = item[1];
@@ -83,26 +113,25 @@ export class Skeleton<T extends string = string, U extends string = string> {
     }
   }
 
-  public getVariable(name: string, defaultValue?: any) {
+  getVariable(name: string, defaultValue?: any) {
     return this.gameState[name] || (this.gameState[name] = defaultValue);
   }
 
-  public getTexture(name: string) {
+  getTexture(name: string) {
     return this.textureCache[name];
   }
 
-  public showFps() {
+  showFps() {
     this.ctx.fillStyle = "red";
     this.ctx.font = `16px Arial`;
     this.ctx.fillText(`FPS: ${Math.round(+this.fps.toFixed())}`, 5, 40);
-    this.defer++
-      if (this.defer > 20) {
-        this.defer = 0;
-        this.fps = this.lastTickTime
-          ? 1000 / (this.tickTime - this.lastTickTime)
-          : 60;
-      }
-    
+    this.defer++;
+    if (this.defer > 20) {
+      this.defer = 0;
+      this.fps = this.lastTickTime
+        ? 1000 / (this.tickTime - this.lastTickTime)
+        : 60;
+    }
   }
 
   tick() {
@@ -121,7 +150,10 @@ export class Skeleton<T extends string = string, U extends string = string> {
   }
 
   destoryInstance(name: U) {
-    return this.instanceSet.delete(name);
+    const { layerIndex } = this.instanceSet.get(name).meta
+    this.layers[ layerIndex ] = this.layers[ layerIndex ].filter( instance => instance.name !== name )
+    this.instanceSet.delete(name);
+    return this
   }
 
   clear() {
@@ -135,13 +167,18 @@ export class Skeleton<T extends string = string, U extends string = string> {
   }
 
   paintInstance() {
-    this.instanceSet.forEach((instance) => {
-      instance.draw(this);
+    this.layers.forEach((layer) => {
+      layer.forEach((instance) => {
+        instance.draw(this);
+      });
     });
   }
 
-  addEvent(type: string, listener: (e: Event, engine: this, set: Map<string, Instance<T>>) => void) {
-    document.addEventListener(type, (e) => listener(e, this, this.instanceSet))
+  addEvent(
+    type: string,
+    listener: (e: Event, engine: this, set: Map<string, Instance<T>>) => void
+  ) {
+    document.addEventListener(type, (e) => listener(e, this, this.instanceSet));
   }
 
   animate() {
@@ -151,16 +188,6 @@ export class Skeleton<T extends string = string, U extends string = string> {
     this.updateInstance();
     this.paintInstance();
     window.requestAnimationFrame(this.animate.bind(this));
-    // this.instanceSet.forEach((instance) => {
-    //   typeof instance.texture === "function"
-    //     ? instance.texture(this.ctx, instance)
-    //     : this.ctx.drawImage(
-    //         this.textureCache.get(instance.texture).texture,
-    //         instance.x,
-    //         instance.y
-    //       );
-    //   instance.movement(instance.vx, instance.vy);
-    // });
   }
 
   startDraw() {
