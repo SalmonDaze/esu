@@ -5,11 +5,12 @@ import {
   InstanceBehavior,
 } from "./instance";
 import { logger } from "./Logger";
+import { Camera, CameraOpts } from "./camera";
 type loadImage = {
   texture: HTMLImageElement;
   status: boolean;
 };
-
+export type InstanceSet = Map<string, Instance>;
 interface Options {
   width?: number;
   height?: number;
@@ -19,17 +20,18 @@ export class Skeleton<T extends string = string, U extends string = string> {
   private opts: Options;
   private defer: number = 0;
   private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
   private fps: number = 60;
   private tickTime: number;
   private lastTickTime: number;
   private time: number = 0;
   private startTime: number = 0;
   private listeners = {};
-  private layers: Instance[][] = [[]];
+  layers: Instance[][] = [[]];
+  ctx: CanvasRenderingContext2D;
   gameState: Map<string, any> = new Map();
+  cameraMap: Map<string, Camera> = new Map();
   textureCache: Map<T, loadImage> = new Map();
-  instanceSet: Map<string, Instance<T>> = new Map();
+  instanceSet: InstanceSet = new Map();
   constructor(canvas: HTMLCanvasElement, opts: Options = { debug: false }) {
     const defaultOpts = {
       width: 800,
@@ -77,6 +79,10 @@ export class Skeleton<T extends string = string, U extends string = string> {
     return this.layers.length - 1;
   }
 
+  addCamera(name: string, camera: Camera) {
+    this.cameraMap.set(name, camera);
+  }
+
   setInstance({
     name,
     pos,
@@ -90,7 +96,7 @@ export class Skeleton<T extends string = string, U extends string = string> {
     initState?;
     layerIndex?: number;
   }): this {
-    const instance = new Instance(name, pos, behavior, initState || {}, {
+    const instance = new Instance(name, pos, behavior, initState, {
       layerIndex,
     });
     this.instanceSet.set(name, instance);
@@ -123,7 +129,7 @@ export class Skeleton<T extends string = string, U extends string = string> {
   showFps() {
     this.ctx.fillStyle = "red";
     this.ctx.font = `16px Arial`;
-    this.ctx.fillText(`FPS: ${Math.round(+this.fps.toFixed())}`, 5, 40);
+    this.ctx.fillText(`FPS: ${Math.round(+this.fps.toFixed())}`, 5, 20);
     this.defer++;
     if (this.defer > 20) {
       this.defer = 0;
@@ -168,9 +174,10 @@ export class Skeleton<T extends string = string, U extends string = string> {
   }
 
   paintInstance() {
-    this.layers.forEach((layer) => {
-      layer.forEach((instance) => {
-        instance.draw(this);
+    this.cameraMap.forEach((camera) => {
+      this.instanceSet.forEach((instance) => {
+        const render = camera.getRender(instance, this.ctx);
+        instance.draw(this, camera);
       });
     });
   }
@@ -179,7 +186,7 @@ export class Skeleton<T extends string = string, U extends string = string> {
     type: string,
     listener: (e: Event, engine: this, set: Map<string, Instance<T>>) => void
   ) {
-    document.addEventListener(type, (e) => listener(e, this, this.instanceSet));
+    this.canvas.addEventListener(type, (e) => listener(e, this, this.instanceSet));
   }
 
   animate() {
@@ -189,7 +196,7 @@ export class Skeleton<T extends string = string, U extends string = string> {
     this.updateInstance();
     this.paintInstance();
     window.requestAnimationFrame(this.animate.bind(this));
-    this.time = new Date().getTime() - this.startTime
+    this.time = new Date().getTime() - this.startTime;
   }
 
   startDraw() {

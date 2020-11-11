@@ -1,3 +1,4 @@
+import { Camera } from "./camera";
 import { Skeleton } from "./engine";
 
 (async () => {
@@ -36,8 +37,23 @@ import { Skeleton } from "./engine";
   await game.loadTexture(textures, (index, count) => {
     console.log((index / count) * 100 + "%");
   });
-
-  game.setVariable("count", 10);
+  const camera = new Camera({
+    cameraName: "init",
+    width: 400,
+    height: 400,
+    offsetX: -400,
+    offsetY: -400,
+  });
+  // const camera2 = new Camera({
+  //   cameraName: "init2",
+  //   width: 400,
+  //   height: 400,
+  //   offsetX: 0,
+  //   offsetY: -300,
+  // });
+  game.addCamera("initCamera", camera);
+  //game.addCamera("camera2", camera2);
+  game.setVariable("count", 100);
   game.addEvent("mousedown", (e, engine, instanceSet) => {
     console.log(e);
     const ball = game.getVariable("count");
@@ -67,7 +83,7 @@ import { Skeleton } from "./engine";
     pointer.y = e.offsetY;
   });
   const ballBehavior = {
-    action: (instance, engine) => {
+    action: (instance, engine, time) => {
       const p = game.getInstance("pointer");
       if (instance.x > 790 || instance.x < 10) instance.vx = -instance.vx;
       if (instance.y > 590 || instance.y < 10) instance.vy = -instance.vy;
@@ -85,30 +101,25 @@ import { Skeleton } from "./engine";
       instance.x += instance.vx;
       instance.y += instance.vy;
     },
-    paint: (instance, engine) => {
+    paint: (instance, engine, camera) => {
       const { ctx } = engine;
+      const { offsetX, offsetY } = camera.getPos(instance);
       ctx.beginPath();
       ctx.fillStyle = instance.state.color;
-      ctx.arc(instance.x, instance.y, 2, 0, Math.PI * 2, false);
+      ctx.arc(offsetX, offsetY, 2, 0, Math.PI * 2, false);
       ctx.fill();
     },
   };
 
   const pointerBehavior = {
     action: (instance, engine, time) => {},
-    paint: (instance, engine) => {
+    paint: (instance, engine, camera) => {
       const { ctx } = engine;
+      const { offsetX, offsetY } = camera.getPos(instance);
       ctx.beginPath();
       ctx.drawImg;
       ctx.fillStyle = instance.color;
-      ctx.arc(
-        instance.x,
-        instance.y,
-        instance.state.radius,
-        0,
-        Math.PI * 2,
-        false
-      );
+      ctx.arc(instance.x, instance.y, instance.state.radius, 0, Math.PI * 2, false);
       ctx.fill();
     },
   };
@@ -135,7 +146,7 @@ import { Skeleton } from "./engine";
       ).toString(16)}${Math.floor(Number(Math.random() * 255)).toString(16)}`
     );
   }
-  game.addLayer()
+  game.addLayer();
   game.setInstance({
     name: `pointer`,
     pos: {
@@ -148,7 +159,7 @@ import { Skeleton } from "./engine";
     initState: {
       radius: 10,
     },
-    layerIndex: game.lastLayerIndex 
+    layerIndex: game.lastLayerIndex,
   });
 
   // canvas.addEventListener("mousemove", (e) => {

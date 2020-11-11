@@ -1,5 +1,5 @@
 import { Skeleton } from './engine'
-
+import { Camera, CameraOpts } from './camera'
 export interface InstanceCnt {
   initVX: number;
   initVY: number;
@@ -21,7 +21,7 @@ export class Instance<T extends string = string> {
   private _y: number;
   state: Record<string, any> = {}
   action?: Function;
-  paint?: (instance: this, engine: Skeleton) => void;
+  paint?: (instance: this, engine: Skeleton, camera: Camera) => void;
   name: string
   meta
   constructor(
@@ -42,12 +42,12 @@ export class Instance<T extends string = string> {
     this.meta = meta
   }
 
-  update(engine: Skeleton) {
-    this.action(this, engine);
+  update(engine: Skeleton, time) {
+    this.action(this, engine, time);
   }
 
-  draw(engine: Skeleton) {
-    this.paint(this, engine)
+  draw(engine: Skeleton, camera: Camera) {
+    this.paint(this, engine, camera)
   }
 
   get vx() {
